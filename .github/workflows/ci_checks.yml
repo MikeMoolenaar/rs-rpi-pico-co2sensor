@@ -13,7 +13,6 @@ jobs:
       matrix:
         # All generated code should be running on stable now
         rust: [stable]
-        inclimental: true
         os:
           # Check compilation works on common OSes
           # (i.e. no path issues)
