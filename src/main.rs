@@ -30,6 +30,7 @@ use bsp::hal::{
 use embedded_hal_bus::spi::ExclusiveDevice;
 
 #[entry]
+#[allow(clippy::empty_loop)]
 fn main() -> ! {
     info!("Program start");
     let mut pac = pac::Peripherals::take().unwrap();
