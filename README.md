@@ -2,8 +2,10 @@
 
 ## TODO
 - [x] Test E-ink display
-- [ ] Test cheap CO2 sensor
-- [ ] Try Bluetooth or WIFI 
+- [x] Test cheap CO2 sensor
+- [x] Test more expensive CO2 sensor
+- [ ] Rewrite to [embasy-rs](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/i2c_async.rs)
+- [ ] Try [Bluetooth](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/bluetooth.rs) or WIFI 
 
 ## Install
 ```sh
