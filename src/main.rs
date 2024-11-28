@@ -39,6 +39,8 @@ use bsp::hal::{
     Timer, I2C,
 };
 use embedded_hal_bus::spi::ExclusiveDevice;
+const CO2_OFFSET: f32 = 300.0;
+const TEMP_OFFSET: f32 = -1.0;
 
 #[entry]
 #[allow(clippy::empty_loop)]
@@ -146,14 +148,12 @@ fn main() -> ! {
         timer.delay_ms(5_000);
         while sensor.is_data_ready().unwrap() != DataStatus::Ready {}
 
-        let co2_offset = 300.0;
-
         let sample = sensor.read_measurement().expect("Should meassure co2");
         writeln!(
             &GLOBAL_UART,
             "Temp:{}, co2:{}\r\n",
-            sample.temperature,
-            sample.co2_concentration + co2_offset
+            sample.temperature + TEMP_OFFSET,
+            sample.co2_concentration + CO2_OFFSET
         )
         .unwrap();
         let mut buf = [0u8; 64];
@@ -161,8 +161,8 @@ fn main() -> ! {
             &mut buf,
             format_args!(
                 "Temp: {:.1}, co2: {:.0}      ",
-                sample.temperature,
-                sample.co2_concentration + co2_offset
+                sample.temperature + TEMP_OFFSET,
+                sample.co2_concentration + CO2_OFFSET
             ),
         )
         .unwrap();
@@ -188,7 +188,8 @@ fn draw_text(display: &mut Display2in13, text: &str, x: i32, y: i32) {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     let _ = writeln!(&GLOBAL_UART, "PANIC:\r\n{:?}\r\n", info);
-    loop {}
+
+    bsp::hal::reset();
 }
 
 struct GlobalUart {
