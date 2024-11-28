@@ -17,6 +17,9 @@ rp-pico = "0.9"
 epd-waveshare = "0.6.0"
 embedded-graphics = "0.8.1"
 embedded-hal-bus = "0.1.0" # 0.2.0 has a weird Atom error that I haven't solved yet...
+critical-section = "1.2.0"
+format_no_std = "1.2.0"
+scd30-interface = "1.0.1"
 
 # cargo build/run
 [profile.dev]
