@@ -19,7 +19,7 @@ epd-waveshare = "0.6.0"
 embedded-graphics = "0.8.1"
 embedded-hal-bus = { version = "0.1.0", features = ["async"] } # 0.2.0 has a weird Atom error that I haven't solved yet...
 format_no_std = "1.2.0"
-scd30-interface = { version = "1.0.1", features= ["defmt"] }
+libscd = { version = "0.3.1", features= ["scd30", "async", "defmt"] }
 
 # cargo build/run
 [profile.dev]

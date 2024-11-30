@@ -2,6 +2,7 @@
 #![no_main]
 
 use cortex_m as _;
+use libscd::asynchronous::scd30::Scd30;
 use {defmt_rtt as _, panic_probe as _};
 
 use defmt::*;
@@ -21,12 +22,8 @@ use embedded_graphics::{
 };
 use embedded_hal_bus::spi::ExclusiveDevice;
 use epd_waveshare::{epd2in13_v2::*, prelude::*};
-use scd30_interface::data::{
-    AmbientPressure, AmbientPressureCompensation, DataStatus, MeasurementInterval,
-};
-use scd30_interface::Scd30;
 
-const CO2_OFFSET: f32 = 300.0;
+const CO2_OFFSET: u16 = 300;
 const TEMP_OFFSET: f32 = -1.0;
 
 embassy_rp::bind_interrupts!(
@@ -67,18 +64,10 @@ async fn main(_spawner: Spawner) {
         Irqs,
         embassy_rp::i2c::Config::default(),
     );
-    let mut sensor = Scd30::new(i2c);
-    sensor
-        .set_measurement_interval(MeasurementInterval::try_from(5).unwrap())
-        .unwrap();
-    sensor
-        .set_automatic_self_calibration(scd30_interface::data::AutomaticSelfCalibration::Active)
-        .unwrap();
-    sensor
-        .trigger_continuous_measurements(Some(AmbientPressureCompensation::CompensationPressure(
-            AmbientPressure::try_from(1026).unwrap(),
-        )))
-        .unwrap();
+    let mut sensor = Scd30::new(i2c, Delay);
+    sensor.set_measurement_interval(5).await.unwrap();
+    sensor.stop_continuous_measurement().await.unwrap();
+    sensor.start_continuous_measurement(1026).await.unwrap();
 
     // Use display graphics from embedded-graphics and draw text
     let mut display = Display2in13::default();
@@ -92,18 +81,25 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     // Read out firmware version
-    let firmware_version = sensor.read_firmware_version().unwrap();
-    info!("Firmware version: {}", firmware_version);
+    let firmware_version = sensor.read_firmware_version().await.unwrap();
+    info!(
+        "Scp30 firmware version: {}.{}",
+        firmware_version.0, firmware_version.1
+    );
 
     loop {
         Timer::after_secs(5).await;
-        while sensor.is_data_ready().unwrap() != DataStatus::Ready {}
 
-        let sample = sensor.read_measurement().expect("Should meassure co2");
+        while !sensor.data_ready().await.unwrap() {
+            Timer::after_millis(250).await;
+        }
+        info!("Scp30 data ready");
+
+        let sample = sensor.measurement().await.expect("Should meassure co2");
         info!(
             "Temp:{}, co2:{}",
             sample.temperature + TEMP_OFFSET,
-            sample.co2_concentration + CO2_OFFSET
+            sample.co2 + CO2_OFFSET
         );
         let mut buf = [0u8; 64];
         let text = format_no_std::show(
@@ -111,7 +107,7 @@ async fn main(_spawner: Spawner) {
             format_args!(
                 "Temp: {:.1}, co2: {:.0}      ",
                 sample.temperature + TEMP_OFFSET,
-                sample.co2_concentration + CO2_OFFSET
+                sample.co2 + CO2_OFFSET
             ),
         )
         .unwrap();
