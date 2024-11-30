@@ -16,7 +16,7 @@ embassy-rp = { version = "0.2.0", features = ["defmt", "time-driver", "critical-
 embassy-time = { version = "0.3.2", features = ["defmt"] }
 embassy-executor = { version = "0.6.3", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers", "task-arena-size-32768"] }
 epd-waveshare = "0.6.0"
-embedded-graphics = "0.8.1"
+embedded-graphics = { version = "0.8.1", features = ["defmt"] }
 embedded-hal-bus = { version = "0.1.0", features = ["async"] } # 0.2.0 has a weird Atom error that I haven't solved yet...
 format_no_std = "1.2.0"
 libscd = { version = "0.3.1", features= ["scd30", "async", "defmt"] }

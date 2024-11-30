@@ -23,8 +23,8 @@ use embedded_graphics::{
 use embedded_hal_bus::spi::ExclusiveDevice;
 use epd_waveshare::{epd2in13_v2::*, prelude::*};
 
-const CO2_OFFSET: u16 = 300;
-const TEMP_OFFSET: f32 = -1.0;
+const CO2_OFFSET: u16 = 400;
+const TEMP_OFFSET: f32 = 0.0;
 
 embassy_rp::bind_interrupts!(
     struct Irqs {
@@ -36,17 +36,18 @@ embassy_rp::bind_interrupts!(
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
+    info!("Hi!");
 
     // Define pins
     let _pin_cs = Output::new(p.PIN_14, Level::Low);
     let pin_busy = Input::new(p.PIN_2, Pull::Down);
     let pin_dc = Output::new(p.PIN_3, Level::Low);
     let pin_rst = Output::new(p.PIN_4, Level::Low);
-    info!("Hi!");
 
+    // Define SPI
     let mut config = Config::default();
     config.frequency = 16_000_000;
-    //                                    CLK       MOSI
+    //                                CLK       MOSI
     let spi = Spi::new_txonly(p.SPI1, p.PIN_10, p.PIN_11, p.DMA_CH0, Config::default());
     let mut spi_delay = Delay;
     let mut spi_device =
@@ -68,6 +69,10 @@ async fn main(_spawner: Spawner) {
     sensor.set_measurement_interval(5).await.unwrap();
     sensor.stop_continuous_measurement().await.unwrap();
     sensor.start_continuous_measurement(1026).await.unwrap();
+    sensor
+        .enable_automatic_self_calibration(true)
+        .await
+        .unwrap();
 
     // Use display graphics from embedded-graphics and draw text
     let mut display = Display2in13::default();
@@ -93,7 +98,6 @@ async fn main(_spawner: Spawner) {
         while !sensor.data_ready().await.unwrap() {
             Timer::after_millis(250).await;
         }
-        info!("Scp30 data ready");
 
         let sample = sensor.measurement().await.expect("Should meassure co2");
         info!(
