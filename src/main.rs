@@ -116,10 +116,6 @@ fn main() -> ! {
         )))
         .unwrap();
 
-    // Read out firmware version
-    let firmware_version = sensor.read_firmware_version().unwrap();
-    println!("Firmware version: {}", firmware_version);
-
     // Use display graphics from embedded-graphics and draw text
     let mut display = Display2in13::default();
     display.set_rotation(DisplayRotation::Rotate90);
@@ -130,6 +126,10 @@ fn main() -> ! {
         .unwrap();
     epd.set_refresh(&mut spi_device, &mut timer, RefreshLut::Quick)
         .unwrap();
+
+    // Read out firmware version
+    let firmware_version = sensor.read_firmware_version().unwrap();
+    println!("Firmware version: {}", firmware_version);
 
     loop {
         timer.delay_ms(5_000);
