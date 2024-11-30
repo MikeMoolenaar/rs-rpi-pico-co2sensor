@@ -78,7 +78,7 @@ fn main() -> ! {
     let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
     let i2c_sda: gpio::Pin<_, gpio::FunctionI2C, _> = pins.gpio18.reconfigure();
     let i2c_scl: gpio::Pin<_, gpio::FunctionI2C, _> = pins.gpio19.reconfigure();
-    println!("Defined pins");
+    println!("Hi!");
 
     // Init SPI
     let spi = spi::Spi::<_, _, _, 8>::new(pac.SPI1, (spi_mosi, spi_sclk));

@@ -8,9 +8,9 @@
 - [ ] Try [Bluetooth](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/bluetooth.rs) or WIFI 
 
 ## Install
+This assumes you have the Raspbery Pi debug probe or another Pico with raspberrypi/debugprobe.
 ```sh
-# Install picotool using your favo package manager, example for arch:
-paru -S picotool
+cargo install --locked probe-rs-tools
 
 rustup target install thumbv6m-none-eabi
 cargo install flip-link
@@ -18,7 +18,6 @@ cargo install flip-link
 
 
 ## Run
-Disconnect PICO, hold BOOTSTEL button while reconnecting again via USB.
 ```sh
 cargo run --release
 ```
