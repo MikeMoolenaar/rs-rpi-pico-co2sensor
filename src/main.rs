@@ -2,7 +2,6 @@
 #![no_main]
 
 use bsp::entry;
-use core::{fmt::Write, panic::PanicInfo};
 use defmt_rtt as _;
 use embedded_graphics::{
     mono_font::MonoTextStyleBuilder,
@@ -11,7 +10,9 @@ use embedded_graphics::{
 };
 use embedded_hal::delay::DelayNs;
 
-// use panic_probe as _;
+use defmt::println;
+
+use panic_probe as _;
 
 use epd_waveshare::{epd2in13_v2::*, prelude::*};
 
@@ -26,15 +27,12 @@ use scd30_interface::data::{
 };
 use scd30_interface::Scd30;
 
-use critical_section::Mutex;
-
 use bsp::hal::fugit::RateExtU32;
 use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
     gpio, pac,
     sio::Sio,
     spi,
-    uart::{DataBits, StopBits, UartConfig, UartPeripheral},
     watchdog::Watchdog,
     Timer, I2C,
 };
@@ -80,17 +78,7 @@ fn main() -> ! {
     let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
     let i2c_sda: gpio::Pin<_, gpio::FunctionI2C, _> = pins.gpio18.reconfigure();
     let i2c_scl: gpio::Pin<_, gpio::FunctionI2C, _> = pins.gpio19.reconfigure();
-
-    // (TX, RX)
-    let uart_pins = (pins.gpio0.into_function(), pins.gpio1.into_function());
-    let uart = bsp::hal::uart::UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
-        .enable(
-            UartConfig::new(11_5200.Hz(), DataBits::Eight, None, StopBits::One),
-            clocks.peripheral_clock.freq(),
-        )
-        .unwrap();
-    GLOBAL_UART.init(uart);
-    writeln!(&GLOBAL_UART, "Hi there!\r\n").unwrap();
+    println!("Defined pins");
 
     // Init SPI
     let spi = spi::Spi::<_, _, _, 8>::new(pac.SPI1, (spi_mosi, spi_sclk));
@@ -130,7 +118,7 @@ fn main() -> ! {
 
     // Read out firmware version
     let firmware_version = sensor.read_firmware_version().unwrap();
-    writeln!(&GLOBAL_UART, "Version: {}\r\n", firmware_version.major).unwrap();
+    println!("Firmware version: {}", firmware_version);
 
     // Use display graphics from embedded-graphics and draw text
     let mut display = Display2in13::default();
@@ -143,19 +131,16 @@ fn main() -> ! {
     epd.set_refresh(&mut spi_device, &mut timer, RefreshLut::Quick)
         .unwrap();
 
-    // TODO: use Wifi here
     loop {
         timer.delay_ms(5_000);
         while sensor.is_data_ready().unwrap() != DataStatus::Ready {}
 
         let sample = sensor.read_measurement().expect("Should meassure co2");
-        writeln!(
-            &GLOBAL_UART,
+        println!(
             "Temp:{}, co2:{}\r\n",
             sample.temperature + TEMP_OFFSET,
             sample.co2_concentration + CO2_OFFSET
-        )
-        .unwrap();
+        );
         let mut buf = [0u8; 64];
         let text = format_no_std::show(
             &mut buf,
@@ -185,44 +170,7 @@ fn draw_text(display: &mut Display2in13, text: &str, x: i32, y: i32) {
     let _ = Text::with_text_style(text, Point::new(x, y), style, text_style).draw(display);
 }
 
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    let _ = writeln!(&GLOBAL_UART, "PANIC:\r\n{:?}\r\n", info);
-
+#[defmt::panic_handler]
+fn panic() -> ! {
     bsp::hal::reset();
-}
-
-struct GlobalUart {
-    inner: Mutex<core::cell::RefCell<Option<MyUart>>>,
-}
-
-type MyUart = UartPeripheral<
-    bsp::hal::uart::Enabled,
-    pac::UART0,
-    (
-        gpio::Pin<gpio::bank0::Gpio0, gpio::FunctionUart, gpio::PullDown>,
-        gpio::Pin<gpio::bank0::Gpio1, gpio::FunctionUart, gpio::PullDown>,
-    ),
->;
-
-static GLOBAL_UART: GlobalUart = GlobalUart {
-    inner: Mutex::new(core::cell::RefCell::new(None)),
-};
-
-impl core::fmt::Write for &GlobalUart {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        critical_section::with(|cs| {
-            let mut cell = self.inner.borrow_ref_mut(cs);
-            let uart = cell.as_mut().unwrap();
-            uart.write_str(s)
-        })
-    }
-}
-
-impl GlobalUart {
-    fn init(&self, uart: MyUart) {
-        critical_section::with(|cs| {
-            self.inner.borrow(cs).replace(Some(uart));
-        });
-    }
 }
