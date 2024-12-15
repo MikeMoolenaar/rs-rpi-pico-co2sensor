@@ -24,7 +24,7 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use epd_waveshare::{epd2in13_v2::*, prelude::*};
 
 const CO2_OFFSET: u16 = 400;
-const TEMP_OFFSET: f32 = 0.0;
+const TEMP_OFFSET: f32 = -2.0;
 
 embassy_rp::bind_interrupts!(
     struct Irqs {
@@ -36,10 +36,9 @@ embassy_rp::bind_interrupts!(
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
-    info!("Hi!");
+    info!("Booting...");
 
     // Define pins
-    let _pin_cs = Output::new(p.PIN_14, Level::Low);
     let pin_busy = Input::new(p.PIN_2, Pull::Down);
     let pin_dc = Output::new(p.PIN_3, Level::Low);
     let pin_rst = Output::new(p.PIN_4, Level::Low);
@@ -53,7 +52,7 @@ async fn main(_spawner: Spawner) {
     let mut spi_device =
         ExclusiveDevice::new(spi, Output::new(p.PIN_5, Level::Low), &mut spi_delay);
 
-    // Setup screen
+    // Setup screena (max_x = 250, max_y = 122)
     let mut epd = Epd2in13::new(&mut spi_device, pin_busy, pin_dc, pin_rst, &mut Delay, None)
         .expect("Epd should work");
 
@@ -79,7 +78,7 @@ async fn main(_spawner: Spawner) {
     display.set_rotation(DisplayRotation::Rotate90);
     display.clear(Color::White).ok();
 
-    draw_text(&mut display, "Hello from Rust!", 5, 0);
+    draw_text(&mut display, "Booting...", 5, 0);
     epd.update_and_display_frame(&mut spi_device, display.buffer(), &mut Delay)
         .unwrap();
     epd.set_refresh(&mut spi_device, &mut Delay, RefreshLut::Quick)
@@ -88,7 +87,7 @@ async fn main(_spawner: Spawner) {
     // Read out firmware version
     let firmware_version = sensor.read_firmware_version().await.unwrap();
     info!(
-        "Scp30 firmware version: {}.{}",
+        "Scp30 connected with firmware version: {}.{}",
         firmware_version.0, firmware_version.1
     );
 
@@ -100,23 +99,40 @@ async fn main(_spawner: Spawner) {
         }
 
         let sample = sensor.measurement().await.expect("Should meassure co2");
-        info!(
-            "Temp:{}, co2:{}",
-            sample.temperature + TEMP_OFFSET,
-            sample.co2 + CO2_OFFSET
-        );
+
         let mut buf = [0u8; 64];
-        let text = format_no_std::show(
+        let temp_text = format_no_std::show(
             &mut buf,
-            format_args!(
-                "Temp: {:.1}, co2: {:.0}      ",
-                sample.temperature + TEMP_OFFSET,
-                sample.co2 + CO2_OFFSET
-            ),
+            format_args!("{:.1}°C     ", sample.temperature + TEMP_OFFSET),
         )
         .unwrap();
+        draw_text(&mut display, temp_text, 5, 0);
 
-        draw_text(&mut display, text, 5, 20);
+        let humidity_text =
+            format_no_std::show(&mut buf, format_args!("{:.0}%H", sample.humidity)).unwrap();
+        draw_text(&mut display, humidity_text, 210, 0);
+
+        let co2 = sample.co2 + CO2_OFFSET;
+        let text = format_no_std::show(&mut buf, format_args!("  {:.1}  ", co2)).unwrap();
+        let style = MonoTextStyleBuilder::new()
+            .font(&profont::PROFONT_24_POINT)
+            .background_color(Color::White)
+            .text_color(Color::Black)
+            .build();
+        let text_style = TextStyleBuilder::new()
+            .baseline(Baseline::Middle)
+            .alignment(embedded_graphics::text::Alignment::Center)
+            .build();
+        let _ =
+            Text::with_text_style(text, Point::new(125, 61), style, text_style).draw(&mut display);
+
+        let text = match co2 {
+            0..=999 => ":)",
+            1000..=1499 => ":|",
+            _ => ":)",
+        };
+        let _ =
+            Text::with_text_style(text, Point::new(125, 90), style, text_style).draw(&mut display);
         epd.update_and_display_frame(&mut spi_device, display.buffer(), &mut Delay)
             .unwrap();
     }
@@ -124,7 +140,7 @@ async fn main(_spawner: Spawner) {
 
 fn draw_text(display: &mut Display2in13, text: &str, x: i32, y: i32) {
     let style = MonoTextStyleBuilder::new()
-        .font(&embedded_graphics::mono_font::ascii::FONT_10X20)
+        .font(&profont::PROFONT_18_POINT)
         .background_color(Color::White)
         .text_color(Color::Black)
         .build();

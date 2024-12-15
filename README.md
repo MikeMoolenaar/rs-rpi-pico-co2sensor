@@ -1,5 +1,5 @@
 # Raspberry Pi Pico powered CO2 sensor
-CO2 sensor with E-ink display and bluetoth on the Raspberry Pi Pico W. Using Rust and the Embassy embedded framework.
+CO2 sensor with E-ink display and bluetoth on the Raspberry Pi Pico W. Using Rust and the Embasy embedded framework.
 
 
 ## TODO
