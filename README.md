@@ -7,6 +7,8 @@ CO2 sensor with E-ink display and bluetoth on the Raspberry Pi Pico W. Using Rus
 - [x] Test cheap CO2 sensor
 - [x] Test more expensive CO2 sensor
 - [x] Rewrite to [embasy-rs](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/i2c_async.rs)
+- [x] Connect with battery
+- [x] Read battery level
 - [ ] Try [Bluetooth](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/bluetooth.rs) or WIFI 
 
 ## Install

@@ -8,6 +8,7 @@ use {defmt_rtt as _, panic_probe as _};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_rp::{
+    adc::{Adc, Channel, Config as AdcConfig, InterruptHandler as AdcInteruptHandler},
     gpio::{Input, Level, Output, Pull},
     i2c::{I2c, InterruptHandler},
     peripherals::I2C1,
@@ -29,6 +30,7 @@ const TEMP_OFFSET: f32 = -2.0;
 embassy_rp::bind_interrupts!(
     struct Irqs {
         I2C1_IRQ => InterruptHandler<I2C1>;
+        ADC_IRQ_FIFO => AdcInteruptHandler;
     }
 );
 
@@ -37,6 +39,9 @@ embassy_rp::bind_interrupts!(
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     info!("Booting...");
+
+    let mut adc = Adc::new(p.ADC, Irqs, AdcConfig::default());
+    let mut p26 = Channel::new_pin(p.PIN_26, Pull::None);
 
     // Define pins
     let pin_busy = Input::new(p.PIN_2, Pull::Down);
@@ -65,8 +70,8 @@ async fn main(_spawner: Spawner) {
         embassy_rp::i2c::Config::default(),
     );
     let mut sensor = Scd30::new(i2c, Delay);
-    sensor.set_measurement_interval(5).await.unwrap();
     sensor.stop_continuous_measurement().await.unwrap();
+    sensor.set_measurement_interval(5).await.unwrap();
     sensor.start_continuous_measurement(1026).await.unwrap();
     sensor
         .enable_automatic_self_calibration(true)
@@ -96,6 +101,7 @@ async fn main(_spawner: Spawner) {
 
         while !sensor.data_ready().await.unwrap() {
             Timer::after_millis(250).await;
+            info!("Waiting for data...");
         }
 
         let sample = sensor.measurement().await.expect("Should meassure co2");
@@ -110,7 +116,7 @@ async fn main(_spawner: Spawner) {
 
         let humidity_text =
             format_no_std::show(&mut buf, format_args!("{:.0}%H", sample.humidity)).unwrap();
-        draw_text(&mut display, humidity_text, 210, 0);
+        draw_text(&mut display, humidity_text, 205, 0);
 
         let co2 = sample.co2 + CO2_OFFSET;
         let text = format_no_std::show(&mut buf, format_args!("  {:.1}  ", co2)).unwrap();
@@ -129,10 +135,17 @@ async fn main(_spawner: Spawner) {
         let text = match co2 {
             0..=999 => ":)",
             1000..=1499 => ":|",
-            _ => ":)",
+            _ => ":(",
         };
         let _ =
             Text::with_text_style(text, Point::new(125, 90), style, text_style).draw(&mut display);
+
+        // Battery level
+        let level = adc.read(&mut p26).await.unwrap();
+        let percentage = f32::from(level) * (3.3 / 65536.0) * 4.572 * 100.0;
+        let text = format_no_std::show(&mut buf, format_args!("{:.0}%", percentage)).unwrap();
+        draw_text(&mut display, text, 5, 100);
+
         epd.update_and_display_frame(&mut spi_device, display.buffer(), &mut Delay)
             .unwrap();
     }
