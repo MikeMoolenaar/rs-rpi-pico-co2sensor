@@ -57,7 +57,7 @@ async fn main(_spawner: Spawner) {
     let mut spi_device =
         ExclusiveDevice::new(spi, Output::new(p.PIN_5, Level::Low), &mut spi_delay);
 
-    // Setup screena (max_x = 250, max_y = 122)
+    // Setup screen (max_x = 250, max_y = 122)
     let mut epd = Epd2in13::new(&mut spi_device, pin_busy, pin_dc, pin_rst, &mut Delay, None)
         .expect("Epd should work");
 
@@ -103,8 +103,12 @@ async fn main(_spawner: Spawner) {
             Timer::after_millis(250).await;
             info!("Waiting for data...");
         }
+        info!("Data ready!");
 
-        let sample = sensor.measurement().await.expect("Should meassure co2");
+        let sample = sensor
+            .read_measurement()
+            .await
+            .expect("Should meassure co2");
 
         let mut buf = [0u8; 64];
         let temp_text = format_no_std::show(
